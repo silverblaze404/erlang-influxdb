@@ -145,7 +145,7 @@ write_async(Config, Measurements) ->
     write_async(Config, Measurements, #{}).
 
 write_async(Config, Measurements, Options) ->
-    AvailWorkers = gen_server:call(get_pool_name(), get_avail_workers),
+    AvailWorkers = poolboy:get_avail_workers(get_pool_name()),
     RandomWorkerIndex = rand:uniform(length(AvailWorkers)),
     lists:nth(RandomWorkerIndex, AvailWorkers) ! {Config, Measurements, Options}.
 
