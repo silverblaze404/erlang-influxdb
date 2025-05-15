@@ -27,12 +27,14 @@ encode_([], Acc) ->
 -spec encode(measurement(), tags(), fields(), timestamp() | undefined) -> iodata().
 %% @doc encode `Measurement`, `Tags`, `Fields` and `Timestamp` into a line, including the final line feed.
 encode(Measurement, Tags, Fields, Timestamp) ->
-    [encode_measurement(Measurement),
-     encode_tags(Tags),
-     $\s,
-     encode_fields(Fields),
-     encode_timestamp(Timestamp),
-     $\n].
+    [
+        encode_measurement(Measurement),
+        encode_tags(Tags),
+        $\s,
+        encode_fields(Fields),
+        encode_timestamp(Timestamp),
+        $\n
+    ].
 
 % Internals
 
@@ -40,19 +42,26 @@ encode(Measurement, Tags, Fields, Timestamp) ->
 encode_measurement(Measurement) when is_atom(Measurement) ->
     encode_measurement(atom_to_list(Measurement));
 encode_measurement(Measurement) ->
-    escape(Measurement,
-           fun (C) when C =:= $, orelse C =:= $\s ->
-                   [$\\, C];
-               (C) ->
-                   C
-           end).
+    escape(
+        Measurement,
+        fun
+            (C) when C =:= $, orelse C =:= $\s ->
+                [$\\, C];
+            (C) ->
+                C
+        end
+    ).
 
 %% @doc encode the tags map, escaping `,`, ` ` (space) and `=` in both the tag name and tag value. The encoded tags map
 %%      includes the `,` prefix in the case of the non empty map.
 encode_tags(Tags) ->
-    encode_tags(lists:ukeysort(1,
-                               [{normalize_key(Key), Value} || {Key, Value} <- maps:to_list(Tags)]),
-                []).
+    encode_tags(
+        lists:ukeysort(
+            1,
+            [{normalize_key(Key), Value} || {Key, Value} <- maps:to_list(Tags)]
+        ),
+        []
+    ).
 
 encode_tags([], Acc) ->
     lists:reverse(Acc);
@@ -62,10 +71,16 @@ encode_tags([{Key, Value} | Rest], Acc) ->
 %% @doc encode the fields map, escaping `,`, ` ` (space) and `=` in the field name and using the right encoding for the
 %%      field value based on its type.
 encode_fields(Fields) ->
-    encode_fields(lists:ukeysort(1,
-                                 [{normalize_key(Key), Value}
-                                  || {Key, Value} <- maps:to_list(Fields)]),
-                  []).
+    encode_fields(
+        lists:ukeysort(
+            1,
+            [
+                {normalize_key(Key), Value}
+             || {Key, Value} <- maps:to_list(Fields)
+            ]
+        ),
+        []
+    ).
 
 encode_fields([{Key, Value}], Acc) ->
     lists:reverse(Acc, [encode_key(Key), $=, encode_field_value(Value)]);
@@ -86,23 +101,29 @@ normalize_key(Data) ->
 
 %% @doc encode a tag or field key.
 encode_key(Data) ->
-    escape(Data,
-           fun (C) when C =:= $, orelse C =:= $= orelse C =:= $\s ->
-                   [$\\, C];
-               (C) ->
-                   C
-           end).
+    escape(
+        Data,
+        fun
+            (C) when C =:= $, orelse C =:= $= orelse C =:= $\s ->
+                [$\\, C];
+            (C) ->
+                C
+        end
+    ).
 
 %% @doc encode a tag value.
 encode_tag_value(Data) when is_atom(Data) ->
     encode_tag_value(atom_to_list(Data));
 encode_tag_value(Data) ->
-    escape(Data,
-           fun (C) when C =:= $, orelse C =:= $= orelse C =:= $\s ->
-                   [$\\, C];
-               (C) ->
-                   C
-           end).
+    escape(
+        Data,
+        fun
+            (C) when C =:= $, orelse C =:= $= orelse C =:= $\s ->
+                [$\\, C];
+            (C) ->
+                C
+        end
+    ).
 
 %% @doc encode a field value.
 encode_field_value(Value) when is_integer(Value) ->
@@ -116,26 +137,34 @@ encode_field_value(false) ->
 encode_field_value(Value) when is_atom(Value) ->
     encode_field_value(atom_to_list(Value));
 encode_field_value(Value) when is_list(Value) orelse is_binary(Value) ->
-    [$",
-     escape(Value,
-            fun (C) when C =:= $" ->
+    [
+        $",
+        escape(
+            Value,
+            fun
+                (C) when C =:= $" ->
                     [$\\, C];
                 (C) ->
                     C
-            end),
-     $"].
+            end
+        ),
+        $"
+    ].
 
 %% @doc encode
 
 %% @doc internal function used for traversing an iodata structure and escaping characters using the given escape
 %%      function.
 escape(Data, EscapeFun) when is_list(Data) ->
-    [if is_integer(C) ->
-            EscapeFun(C);
-        is_list(C) orelse is_binary(C) ->
-            escape(C, EscapeFun)
-     end
-     || C <- Data];
+    [
+        if
+            is_integer(C) ->
+                EscapeFun(C);
+            is_list(C) orelse is_binary(C) ->
+                escape(C, EscapeFun)
+        end
+     || C <- Data
+    ];
 escape(Bin, EscapeFun) when is_binary(Bin) ->
     unicode:characters_to_binary(escape(unicode:characters_to_list(Bin), EscapeFun)).
 
@@ -144,43 +173,60 @@ escape(Bin, EscapeFun) when is_binary(Bin) ->
 -include_lib("eunit/include/eunit.hrl").
 
 -define(label(S),
-        unicode:characters_to_list(
-            io_lib:format("~p", [S]))).
+    unicode:characters_to_list(
+        io_lib:format("~p", [S])
+    )
+).
 
 encode_measurement_test_() ->
     Tests =
-        #{"string" => "string",
-          <<"binary">> => "binary",
-          ["io", <<"l">>, $i, <<"st">>] => "iolist",
-          "spaces🚀️, commas and emoji" => "spaces🚀️\\,\\ commas\\ and\\ emoji",
-          "spaces🚀️ and emoji" => "spaces🚀️\\ and\\ emoji"},
-    [{?label(Measurement),
-      ?_assertEqual(Encoded, unicode:characters_to_list(encode_measurement(Measurement)))}
-     || {Measurement, Encoded} <- maps:to_list(Tests)].
+        #{
+            "string" => "string",
+            <<"binary">> => "binary",
+            ["io", <<"l">>, $i, <<"st">>] => "iolist",
+            "spaces🚀️, commas and emoji" => "spaces🚀️\\,\\ commas\\ and\\ emoji",
+            "spaces🚀️ and emoji" => "spaces🚀️\\ and\\ emoji"
+        },
+    [
+        {
+            ?label(Measurement),
+            ?_assertEqual(Encoded, unicode:characters_to_list(encode_measurement(Measurement)))
+        }
+     || {Measurement, Encoded} <- maps:to_list(Tests)
+    ].
 
 encode_tags_test_() ->
     Tests =
-        #{#{} => "",
-          #{"key" => "value"} => ",key=value",
-          #{"b" => "B", ["a", <<"1">>] => "A"} => ",a1=A,b=B"},
-    [{?label(Tags), ?_assertEqual(Encoded, unicode:characters_to_list(encode_tags(Tags)))}
-     || {Tags, Encoded} <- maps:to_list(Tests)].
+        #{
+            #{} => "",
+            #{"key" => "value"} => ",key=value",
+            #{"b" => "B", ["a", <<"1">>] => "A"} => ",a1=A,b=B"
+        },
+    [
+        {?label(Tags), ?_assertEqual(Encoded, unicode:characters_to_list(encode_tags(Tags)))}
+     || {Tags, Encoded} <- maps:to_list(Tests)
+    ].
 
 encode_fields_test_() ->
     Tests =
-        #{#{"float" => 1.2} => "float=1.2",
-          #{"integer" => 1} => "integer=1i",
-          #{"true" => true} => "true=t",
-          #{"false" => false} => "false=f",
-          #{"string" => "string"} => "string=\"string\""},
-    [{?label(Fields),
-      ?_assertEqual(Encoded, unicode:characters_to_list(encode_fields(Fields)))}
-     || {Fields, Encoded} <- maps:to_list(Tests)].
+        #{
+            #{"float" => 1.2} => "float=1.2",
+            #{"integer" => 1} => "integer=1i",
+            #{"true" => true} => "true=t",
+            #{"false" => false} => "false=f",
+            #{"string" => "string"} => "string=\"string\""
+        },
+    [
+        {?label(Fields), ?_assertEqual(Encoded, unicode:characters_to_list(encode_fields(Fields)))}
+     || {Fields, Encoded} <- maps:to_list(Tests)
+    ].
 
 encode_timestamp_test_() ->
     Now = erlang:system_time(nano_seconds),
     Tests = #{undefined => "", Now => [$\s, erlang:integer_to_binary(Now)]},
-    [{?label(Timestamp), ?_assertEqual(Encoded, encode_timestamp(Timestamp))}
-     || {Timestamp, Encoded} <- maps:to_list(Tests)].
+    [
+        {?label(Timestamp), ?_assertEqual(Encoded, encode_timestamp(Timestamp))}
+     || {Timestamp, Encoded} <- maps:to_list(Tests)
+    ].
 
 -endif.
