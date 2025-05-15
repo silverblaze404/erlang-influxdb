@@ -84,7 +84,7 @@ init_test_() ->
     {ok, {_, PoolSpecList}} = influxdb_sup:init([]),
     TestResult1 = lists:keyfind('mhs_gmc_influxdb_pool', 1, PoolSpecList),
     TestResult2 = lists:keyfind('pf_GreyOrange_influxdb_pool', 1, PoolSpecList),
-    ?_assertEqual(true, TestResult1 =/= false),
-    ?_assertEqual(true, TestResult2 =/= false).
+    [{"t1", ?_assertEqual(true, TestResult1 =/= false)},
+    {"t2", ?_assertEqual(true, TestResult2 =/= false)}].
 
 -endif.
