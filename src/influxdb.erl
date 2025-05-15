@@ -6,9 +6,11 @@
     write/2,
     write/3,
     write_async/2,
-    write_async/3,
-    get_batch_processing_fun/0
+    write_async/3
 ]).
+
+-export([get_batch_processing_fun/0]).
+
 -export_type([
     config/0,
     time_unit/0,
