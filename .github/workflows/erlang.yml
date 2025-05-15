@@ -1,0 +1,80 @@
+name: Erlang CI
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Test with OTP ${{ matrix.otp_version }} on Ubuntu
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        otp_version: ['26', '27']
+
+    env:
+      LATEST_OTP_RELEASE: 27
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Erlang
+      uses: erlef/setup-beam@v1
+      with:
+        otp-version: ${{ matrix.otp_version }}
+        rebar3-version: '3.24.0'
+    - name: Deps cache
+      id: cache-deps
+      uses: actions/cache@v3
+      with:
+        path: |
+          priv
+          _build/default
+        key: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.otp_version }}-deps-${{ hashFiles('**/rebar.config', '**/rebar.lock', '**/Makefile') }}
+        restore-keys: ${{ runner.os }}-${{ matrix.os }}-${{ matrix.otp_version }}-deps-
+    - name: Compile
+      run: make
+    - name: Run tests
+      run: make test
+    - name: Static Checks
+      shell: bash
+      run: |
+        if [[ "${{ matrix.otp_version }}" == "${{ env.LATEST_OTP_RELEASE }}" ]]; then
+          wget -nv https://github.com/WhatsApp/eqwalizer/releases/download/v0.17.16/elp-linux.tar.gz
+          tar -xzf elp-linux.tar.gz
+          mv elp /usr/local/bin
+          make checks
+        fi
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      if: matrix.otp_version == env.LATEST_OTP_RELEASE
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  macos:
+    name: Test on MacOS
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Brew Version Check
+      run: brew --version
+    - name: Keep Brew Fresh
+      run: brew update
+    - name: Install Erlang
+      run: brew install erlang rebar3
+    - name: Deps cache
+      id: cache-deps
+      uses: actions/cache@v3
+      with:
+        path: |
+          priv
+          _build/default
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/rebar.config', '**/rebar.lock', '**/Makefile') }}
+        restore-keys: ${{ runner.os }}-deps-
+    - name: Compile
+      run: make
