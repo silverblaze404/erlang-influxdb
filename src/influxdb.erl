@@ -59,11 +59,13 @@ query(
         host => Host,
         port => Port,
         path => "/query",
-        query => url_query(Config, Options)
+        query => maps:merge(
+            url_query(Config, Options),
+            #{"q" => Query}
+        )
     }),
-    Body = influxdb_uri:encode_query(#{q => Query, params => jsone:encode(Parameters)}),
+    Body = influxdb_uri:encode_query(#{params => jsone:encode(Parameters)}),
     influxdb_http:post(
-        query,
         Url,
         Username,
         Password,
@@ -178,7 +180,6 @@ write(
     }),
     Body = influxdb_line_encoding:encode(Measurements),
     influxdb_http:post(
-        write,
         Url,
         Username,
         Password,
@@ -242,7 +243,6 @@ get_batch_processing_fun() ->
                 Batch
             ),
         influxdb_http:post(
-            write,
             Url,
             Username,
             Password,

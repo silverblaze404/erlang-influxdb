@@ -10,6 +10,7 @@
 -type start_type() :: normal | {takeover, node()} | {failover, node()}.
 
 start(_StartType, _StartArgs) ->
+    ok = application:ensure_all_started(hackney),
     {ok, _} =
         inets:start(
             httpc,
@@ -34,6 +35,7 @@ start(_StartType, _StartArgs) ->
 
 -spec stop(State :: term()) -> term().
 stop(_State) ->
+    application:stop(hackney),
     inets:stop(httpc, influxdb_query),
     inets:stop(httpc, influxdb_write),
     ok.
