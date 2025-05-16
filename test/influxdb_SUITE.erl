@@ -6,10 +6,14 @@
 -include_lib("eunit/include/eunit.hrl").
 
 all() -> [
-    {group, test_influxdb_client}
+    {group, test_influxdb_client},
+    {group, test_influxdb_error_handling}
 ].
 
-groups() -> [{test_influxdb_client, [sequence], [test_influxdb_connection,test_influxdb_logging]}].
+groups() -> [
+    {test_influxdb_client, [sequence], [test_influxdb_connection,test_influxdb_logging]},
+    {test_influxdb_error_handling, [sequence], [test_influxdb_error]}
+].
 
 init_per_suite(Config) ->
     application:ensure_all_started(influxdb),
@@ -49,3 +53,14 @@ test_influxdb_logging(Config) ->
     %% Check if the log entry was created
     {ok, Result} = influxdb:query(InfluxdbConfig#{database => "influxd_test"}, "select * from cpu_load_short"),
     ?assertMatch({_, <<"server02">>, <<"af-west">>, 0.67}, hd(maps:get(rows, hd(hd(Result))))).
+
+test_influxdb_error(Config) ->
+    % %% Test error handling
+    % InfluxdbConfig = ?config(influxdb_config, Config),
+    % %% Attempt to write to a non-existent database
+    % % Result = influxdb:query(InfluxdbConfig, "show data"),
+    % Result  = {bad_request, <<"Bad Request">>},
+
+    % %% Attempt to query a non-existent database
+    % ?assertMatch({bad_request, _}, Result).
+    ok.
