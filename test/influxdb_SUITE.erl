@@ -17,6 +17,7 @@ groups() -> [
 
 init_per_suite(Config) ->
     application:ensure_all_started(influxdb),
+    application:set_env(influxdb, http_client, httpc),
     Config.
 
 init_per_group(_, Config) ->
@@ -27,6 +28,7 @@ end_per_group(_, Config) ->
     Config.
 
 end_per_suite(_Config) ->
+    application:unset_env(influxdb, http_client),
     application:stop(influxdb),
     ok.
 
@@ -54,7 +56,7 @@ test_influxdb_logging(Config) ->
     {ok, Result} = influxdb:query(InfluxdbConfig#{database => "influxd_test"}, "select * from cpu_load_short"),
     ?assertMatch({_, <<"server02">>, <<"af-west">>, 0.67}, hd(maps:get(rows, hd(hd(Result))))).
 
-test_influxdb_error(Config) ->
+test_influxdb_error(_Config) ->
     % %% Test error handling
     % InfluxdbConfig = ?config(influxdb_config, Config),
     % %% Attempt to write to a non-existent database

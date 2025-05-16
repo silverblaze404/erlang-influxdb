@@ -1,14 +1,16 @@
 -module(influxdb_http).
 
--export([post/6]).
+-export([post/7]).
 
 -export_type([result/0, series/0]).
 
--spec post(binary(), string(), string(), string(), iodata(), timeout()) ->
+-spec post(client(), binary(), string(), string(), string(), iodata(), timeout()) ->
     ok
     | {ok, [result()]}
     | {error, {not_found, string()}}
     | {error, {server_error, string()}}.
+
+-type client() :: query | write.
 -type result() :: [series()].
 -type series() ::
     #{
@@ -18,7 +20,17 @@
         tags => #{binary() => binary()}
     }.
 
-post(Url, Username, Password, ContentType, Body, Timeout) ->
+post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
+    case application:get_env(influxdb, http_client, hackney) of
+        hackney ->
+            post_hackney(Url, Username, Password, ContentType, Body, Timeout);
+        httpc ->
+            post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout);
+        _ ->
+            erlang:error({badarg, "Invalid HTTP client"})
+    end.
+
+post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
     Headers = [{"Authorization", Authorization}, {"Content-Type", ContentType}],
     Options = [{timeout, Timeout}, {recv_timeout, Timeout}],
@@ -49,7 +61,30 @@ post(Url, Username, Password, ContentType, Body, Timeout) ->
             erlang:exit(Reason)
     end.
 
+post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
+    Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
+    Headers = [{"Authorization", Authorization}],
+    case
+        httpc:request(
+            post,
+            {binary_to_list(Url), Headers, ContentType, iolist_to_binary(Body)},
+            [{timeout, Timeout}],
+            [{body_format, binary}],
+            profile(Client)
+        )
+    of
+        {ok, {{_, RespCode, _}, RespHeaders, RespBody}} ->
+            response(RespCode, RespHeaders, RespBody);
+        {error, Reason} ->
+            erlang:exit(Reason)
+    end.
+
 %% Internals
+
+profile(query) ->
+    influxdb_query;
+profile(write) ->
+    influxdb_write.
 
 response(200, _, Body) ->
     case results(jsone:decode(Body)) of
