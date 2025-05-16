@@ -39,7 +39,7 @@ post(Url, Username, Password, ContentType, Body, Timeout) ->
         {ok, Status, _Headers} when Status == 200 ->
             ok;
         {ok, Status, _Headers} ->
-            erlang:error({bad_response, Status});
+            erlang:exit({bad_response, Status});
         {ok, ClientRef} ->
             %% that's when the options passed to hackney included `async'
             %% this reference can then be used to match the messages from
