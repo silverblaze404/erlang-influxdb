@@ -59,13 +59,21 @@ query(
         host => Host,
         port => Port,
         path => "/query",
-        query => url_query(Config, Options)
+        query => maps:merge(
+            url_query(Config, Options),
+            #{"q" => Query}
+        )
     }),
-    Body = influxdb_uri:encode_query(#{
-        q => Query,
-        params => jsone:encode(Parameters)
-    }),
-    influxdb_http:post(query, Url, Username, Password, "application/x-www-form-urlencoded", Body, Timeout).
+    Body = influxdb_uri:encode_query(#{q => Query, params => jsone:encode(Parameters)}),
+    influxdb_http:post(
+        query,
+        Url,
+        Username,
+        Password,
+        "application/x-www-form-urlencoded",
+        Body,
+        Timeout
+    ).
 
 url_query(Config, Options) ->
     maps:fold(
