@@ -30,10 +30,12 @@ start(_StartType, _StartArgs) ->
                 {max_pipeline_length, 0}
             ]
         ),
+    application:ensure_all_started(hackney),
     influxdb_sup:start_link().
 
 -spec stop(State :: term()) -> term().
 stop(_State) ->
     inets:stop(httpc, influxdb_query),
     inets:stop(httpc, influxdb_write),
+    application:stop(hackney),
     ok.

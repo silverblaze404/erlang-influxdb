@@ -17,7 +17,7 @@ groups() -> [
 
 init_per_suite(Config) ->
     application:ensure_all_started(influxdb),
-    application:set_env(influxdb, http_client, httpc),
+    application:set_env(influxdb, http_client, hackney),
     Config.
 
 init_per_group(_, Config) ->

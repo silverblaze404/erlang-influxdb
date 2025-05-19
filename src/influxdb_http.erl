@@ -23,8 +23,41 @@ post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
     case application:get_env(influxdb, http_client) of
         {ok, httpc} ->
             post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout);
+        {ok, hackney} ->
+            post_hackney(Url, Username, Password, ContentType, Body, Timeout);
         {ok, _} ->
             erlang:error({badarg, <<"Invalid HTTP client">>})
+    end.
+
+post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
+    Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
+    Headers = [{"Authorization", Authorization}, {"Content-Type", ContentType}],
+    Options = [{timeout, Timeout}, {recv_timeout, Timeout}],
+    case hackney:request(
+        post,
+        Url,
+        Headers,
+        Body,
+        Options
+    ) of
+        {ok, StatusCode, RespHeaders, ClientRef} ->
+            case hackney:body(ClientRef) of
+                {ok, RespBody} ->
+                    response(StatusCode, RespHeaders, RespBody);
+                {error, Reason} ->
+                    erlang:exit(Reason)
+            end;
+        {ok, Status, _Headers} when Status == 200 ->
+            ok;
+        {ok, Status, _Headers} ->
+            erlang:exit({bad_response, Status});
+        {ok, ClientRef} ->
+            %% that's when the options passed to hackney included `async'
+            %% this reference can then be used to match the messages from
+            %% hackney when ES replies; see the hackney doc for more information
+            {ok, {async, ClientRef}};
+        {error, Reason} ->
+            erlang:exit(Reason)
     end.
 
 post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
