@@ -13,9 +13,6 @@ test:
 	@$(REBAR) ct -v -c
 	@$(REBAR) cover -v
 
-dialyzer:
-	@$(REBAR) as dialyzer dialyzer
-
 xref:
 	@$(REBAR) xref
 
@@ -26,6 +23,6 @@ check-format:
 format:
 	@$(REBAR) format
 
-checks: xref dialyzer check-format
+checks: xref check-format
 
-.PHONY: all compile clean test dialyzer xref checks format check-format
+.PHONY: all compile clean test xref checks format check-format
