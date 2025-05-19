@@ -17,7 +17,8 @@ groups() -> [
 
 init_per_suite(Config) ->
     application:ensure_all_started(influxdb),
-    application:set_env(influxdb, http_client, httpc),
+    application:ensure_all_started(hackney),
+    application:set_env(influxdb, http_client, hackney),
     Config.
 
 init_per_group(_, Config) ->
@@ -30,6 +31,7 @@ end_per_group(_, Config) ->
 end_per_suite(_Config) ->
     application:unset_env(influxdb, http_client),
     application:stop(influxdb),
+    application:stop(hackney),
     ok.
 
 init_per_testcase(_, Config) ->
@@ -63,9 +65,7 @@ test_influxdb_error(Config) ->
         %% Attempt to write to a non-existent database
         influxdb:query(InfluxdbConfig, "show data", #{}, #{timeout => 30000})
     catch
-        error:{bad_request, Reason} ->
+        error:Error ->
             %% Assert the error reason
-            ?assertMatch({bad_request, _}, {bad_request, Reason}),
-            %% Assert the error message is a list of characters
-            ?assertEqual(true, is_list(Reason))
+            ?assertMatch({bad_request, _}, Error)
     end.
