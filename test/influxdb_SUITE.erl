@@ -17,7 +17,7 @@ groups() -> [
 
 init_per_suite(Config) ->
     application:ensure_all_started(influxdb),
-    application:set_env(influxdb, http_client, hackney),
+    application:set_env(influxdb, http_client, httpc),
     Config.
 
 init_per_group(_, Config) ->
@@ -41,9 +41,9 @@ end_per_testcase(_, _Config) ->
 test_influxdb_connection(Config) ->
     %% Test database creation functionality
     InfluxdbConfig = ?config(influxdb_config, Config),
-    ok = influxdb:query(InfluxdbConfig, "create database influxd_test"),
+    ok = influxdb:query(InfluxdbConfig, "create database influxd_test", #{}, #{timeout => 30000}),
     %% Verify if the database was created successfully
-    {ok, DatabaseResult} = influxdb:query(InfluxdbConfig,  "show databases"),
+    {ok, DatabaseResult} = influxdb:query(InfluxdbConfig,  "show databases", #{}, #{timeout => 30000}),
     ?assertEqual(lists:member({<<"influxd_test">>}, maps:get(rows, hd(hd(DatabaseResult)))), true).
 
 test_influxdb_logging(Config) ->
@@ -51,18 +51,21 @@ test_influxdb_logging(Config) ->
     InfluxdbConfig = ?config(influxdb_config, Config),
     ok = influxdb:write(InfluxdbConfig#{database => "influxd_test"}, [{"cpu_load_short",
     #{"region" => "af-west", "host" => "server02"},
-    #{"value" => 0.67}}]),
+    #{"value" => 0.67}}], #{timeout => 30000}),
     %% Check if the log entry was created
-    {ok, Result} = influxdb:query(InfluxdbConfig#{database => "influxd_test"}, "select * from cpu_load_short"),
+    {ok, Result} = influxdb:query(InfluxdbConfig#{database => "influxd_test"}, "select * from cpu_load_short", #{}, #{timeout => 30000}),
     ?assertMatch({_, <<"server02">>, <<"af-west">>, 0.67}, hd(maps:get(rows, hd(hd(Result))))).
 
-test_influxdb_error(_Config) ->
-    % %% Test error handling
-    % InfluxdbConfig = ?config(influxdb_config, Config),
-    % %% Attempt to write to a non-existent database
-    % % Result = influxdb:query(InfluxdbConfig, "show data"),
-    % Result  = {bad_request, <<"Bad Request">>},
-
-    % %% Attempt to query a non-existent database
-    % ?assertMatch({bad_request, _}, Result).
-    ok.
+test_influxdb_error(Config) ->
+    %% Test error handling
+    InfluxdbConfig = ?config(influxdb_config, Config),
+    try
+        %% Attempt to write to a non-existent database
+        influxdb:query(InfluxdbConfig, "show data", #{}, #{timeout => 30000})
+    catch
+        error:{bad_request, Reason} ->
+            %% Assert the error reason
+            ?assertMatch({bad_request, _}, {bad_request, Reason}),
+            %% Assert the error message is a list of characters
+            ?assertEqual(true, is_list(Reason))
+    end.

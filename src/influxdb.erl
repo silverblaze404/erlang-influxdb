@@ -63,7 +63,10 @@ query(
         host => Host,
         port => Port,
         path => "/query",
-        query => url_query(Config, Options)
+        query => maps:merge(
+            url_query(Config, Options),
+            #{"q" => Query}
+        )
     }),
     Body = influxdb_uri:encode_query(#{q => Query, params => jsone:encode(Parameters)}),
     influxdb_http:post(

@@ -31,8 +31,13 @@ post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
 
 post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
-    Headers = [{"Authorization", Authorization}, {"Content-Type", ContentType}],
-    Options = [{timeout, Timeout}, {recv_timeout, Timeout}],
+    Headers = [{"Authorization", Authorization}, {"Content-Type", ContentType}, {"Connection", "close"}],
+    Options = [
+        {timeout, Timeout},
+        {recv_timeout, Timeout},
+        {connect_timeout, Timeout},
+        {pool, false}
+    ],
     case hackney:request(
         post,
         Url,
