@@ -20,6 +20,14 @@
     }.
 
 post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
+    case application:get_env(influxdb, http_client) of
+        {ok, httpc} -> post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout);
+        {ok, _} ->
+            erlang:error({badarg, "Invalid HTTP client specified"})
+    end.
+            
+
+post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
     Headers = [{"Authorization", Authorization}],
     case
@@ -36,7 +44,6 @@ post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
         {error, Reason} ->
             erlang:exit(Reason)
     end.
-
 %% Internals
 
 profile(query) ->
