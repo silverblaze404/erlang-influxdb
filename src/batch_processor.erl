@@ -70,15 +70,16 @@ receive_and_merge(AccData, _StartTime, State) when length(AccData) >= 500 ->
 receive_and_merge(AccData, StartTime, State) ->
     Time = erlang:monotonic_time(millisecond),
     TimeLeft = 1000 - (Time - StartTime),
-    if TimeLeft =< 0 ->
-           AccData;
-       true ->
-           receive
-               Data ->
-                   receive_and_merge([Data | AccData], StartTime, State)
-           after TimeLeft ->
-               AccData
-           end
+    if
+        TimeLeft =< 0 ->
+            AccData;
+        true ->
+            receive
+                Data ->
+                    receive_and_merge([Data | AccData], StartTime, State)
+            after TimeLeft ->
+                AccData
+            end
     end.
 
 %% @private
