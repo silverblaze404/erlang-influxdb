@@ -1,14 +1,9 @@
-{application, influxdb, [
-    {description, "InfluxDB client library"},
-    {vsn, "0.2.1"},
-    {modules, []},
-    {applications, [
-        kernel,
-        stdlib,
-        inets,
-        jsone
-    ]},
-    {mod, {influxdb_app, []}},
-    {registered, [influxdb_sup]},
-    {env, []}
-]}.
+{application,
+ influxdb,
+ [{description, "InfluxDB client library"},
+  {vsn, "0.2.1"},
+  {modules, []},
+  {applications, [kernel, stdlib, inets, jsone]},
+  {mod, {influxdb_app, []}},
+  {registered, [influxdb_sup]},
+  {env, []}]}.
