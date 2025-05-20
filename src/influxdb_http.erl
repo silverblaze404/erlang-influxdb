@@ -24,12 +24,12 @@ post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
         {ok, httpc} ->
             post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout);
         {ok, hackney} ->
-            post_hackney(Url, Username, Password, ContentType, Body, Timeout);
+            post_hackney(Client, Url, Username, Password, ContentType, Body, Timeout);
         {ok, _} ->
             erlang:error({badarg, <<"Invalid HTTP client">>})
     end.
 
-post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
+post_hackney(Client, Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
     Headers = [
         {"Authorization", Authorization}, {"Content-Type", ContentType}
@@ -38,7 +38,7 @@ post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
         {timeout, Timeout},
         {recv_timeout, Timeout},
         {connect_timeout, Timeout},
-        {pool, false}
+        {pool, profile(Client)}
     ],
     case
         hackney:request(
@@ -69,7 +69,7 @@ post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
             erlang:exit(Reason)
     end.
 
-post_httpc(_Client, Url, Username, Password, ContentType, Body, Timeout) ->
+post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
     Headers = [{"Authorization", Authorization}],
     case
@@ -77,7 +77,8 @@ post_httpc(_Client, Url, Username, Password, ContentType, Body, Timeout) ->
             post,
             {binary_to_list(Url), Headers, ContentType, iolist_to_binary(Body)},
             [{timeout, Timeout}],
-            [{body_format, binary}]
+            [{body_format, binary}],
+            profile(Client)
         )
     of
         {ok, {{_, RespCode, _}, RespHeaders, RespBody}} ->
@@ -88,10 +89,10 @@ post_httpc(_Client, Url, Username, Password, ContentType, Body, Timeout) ->
 
 %% Internals
 
-% profile(query) ->
-%     influxdb_query;
-% profile(write) ->
-%     influxdb_write.
+profile(query) ->
+    influxdb_query;
+profile(write) ->
+    influxdb_write.
 
 response(200, _, Body) ->
     case results(jsone:decode(Body)) of
