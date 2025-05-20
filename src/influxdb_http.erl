@@ -32,7 +32,7 @@ post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
 post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
     Headers = [
-        {"Authorization", Authorization}, {"Content-Type", ContentType}, {"Connection", "close"}
+        {"Authorization", Authorization}, {"Content-Type", ContentType}
     ],
     Options = [
         {timeout, Timeout},
@@ -69,7 +69,7 @@ post_hackney(Url, Username, Password, ContentType, Body, Timeout) ->
             erlang:exit(Reason)
     end.
 
-post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
+post_httpc(_Client, Url, Username, Password, ContentType, Body, Timeout) ->
     Authorization = "Basic " ++ base64:encode_to_string(Username ++ ":" ++ Password),
     Headers = [{"Authorization", Authorization}],
     case
@@ -77,8 +77,7 @@ post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
             post,
             {binary_to_list(Url), Headers, ContentType, iolist_to_binary(Body)},
             [{timeout, Timeout}],
-            [{body_format, binary}],
-            profile(Client)
+            [{body_format, binary}]
         )
     of
         {ok, {{_, RespCode, _}, RespHeaders, RespBody}} ->
@@ -89,10 +88,10 @@ post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
 
 %% Internals
 
-profile(query) ->
-    influxdb_query;
-profile(write) ->
-    influxdb_write.
+% profile(query) ->
+%     influxdb_query;
+% profile(write) ->
+%     influxdb_write.
 
 response(200, _, Body) ->
     case results(jsone:decode(Body)) of
