@@ -20,12 +20,12 @@
     }.
 
 post(Client, Url, Username, Password, ContentType, Body, Timeout) ->
-    case application:get_env(influxdb, http_client) of
-        {ok, httpc} ->
+    case application:get_env(influxdb, http_client, hackney) of
+        httpc ->
             post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout);
-        {ok, hackney} ->
+        hackney ->
             post_hackney(Client, Url, Username, Password, ContentType, Body, Timeout);
-        {ok, _} ->
+        _ ->
             erlang:error({badarg, <<"Invalid HTTP client">>})
     end.
 
@@ -40,33 +40,37 @@ post_hackney(Client, Url, Username, Password, ContentType, Body, Timeout) ->
         {connect_timeout, Timeout},
         {pool, profile(Client)}
     ],
-    case
-        hackney:request(
-            post,
-            Url,
-            Headers,
-            Body,
-            Options
-        )
-    of
+    RetryMax = 5,
+    RetryDelay = 500, % Initial delay in milliseconds
+    post_hackney_with_retries(Url, Headers, Body, Options, RetryMax, RetryDelay).
+
+post_hackney_with_retries(_Url, _Headers, _Body, _Options, 0, _) ->
+    erlang:exit({error, max_retries_exceeded});
+post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft, Delay) ->
+    case hackney:request(post, Url, Headers, Body, Options) of
         {ok, StatusCode, RespHeaders, ClientRef} ->
             case hackney:body(ClientRef) of
                 {ok, RespBody} ->
                     response(StatusCode, RespHeaders, RespBody);
-                {error, Reason} ->
-                    erlang:exit(Reason)
+                {error, _Reason} ->
+                    timer:sleep(Delay),
+                    post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2)
             end;
         {ok, Status, _Headers} when Status == 200 ->
             ok;
         {ok, Status, _Headers} ->
-            erlang:exit({bad_response, Status});
+            case is_retriable_status(Status) of
+                true ->
+                    timer:sleep(Delay),
+                    post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2);
+                false ->
+                    erlang:exit({bad_response, Status})
+            end;
         {ok, ClientRef} ->
-            %% that's when the options passed to hackney included `async'
-            %% this reference can then be used to match the messages from
-            %% hackney when ES replies; see the hackney doc for more information
             {ok, {async, ClientRef}};
-        {error, Reason} ->
-            erlang:exit(Reason)
+        {error, _Reason} ->
+            timer:sleep(Delay),
+            post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2)
     end.
 
 post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
@@ -88,6 +92,9 @@ post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
     end.
 
 %% Internals
+
+is_retriable_status(Status) ->
+    lists:member(Status, [408, 429, 500, 502, 503, 504]).
 
 profile(query) ->
     influxdb_query;
