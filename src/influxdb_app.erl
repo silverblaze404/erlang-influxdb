@@ -30,7 +30,6 @@ start(_StartType, _StartArgs) ->
                 {max_pipeline_length, 0}
             ]
         ),
-    application:ensure_all_started(hackney),
     ok = hackney_pool:start_pool(influxdb_query, [{timeout, 15000}, {max_connections, 10}]),
     ok = hackney_pool:start_pool(influxdb_write, [{timeout, 15000}, {max_connections, 10}]),
     influxdb_sup:start_link().
@@ -41,5 +40,4 @@ stop(_State) ->
     inets:stop(httpc, influxdb_write),
     hackney_pool:stop_pool(influxdb_query),
     hackney_pool:stop_pool(influxdb_write),
-    application:stop(hackney),
     ok.
