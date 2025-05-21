@@ -26,21 +26,21 @@ start(_StartType, _StartArgs) ->
     HttpcProfileConfigMap = application:get_env(
         influxdb, httpc_profile_configs, DefaultHttpcProfileConfigs
     ),
-    QueryProfileConfig = maps:get(influxdb_query, HttpcProfileConfigMap, []),
-    WriteProfileConfig = maps:get(influxdb_write, HttpcProfileConfigMap, []),
+    HttpcQueryProfileConfig = maps:get(influxdb_query, HttpcProfileConfigMap, []),
+    HttpWriteProfileConfig = maps:get(influxdb_write, HttpcProfileConfigMap, []),
     {ok, _} =
         inets:start(
             httpc,
             [
                 {profile, influxdb_query}
-            ] ++ QueryProfileConfig
+            ] ++ HttpcQueryProfileConfig
         ),
     {ok, _} =
         inets:start(
             httpc,
             [
                 {profile, influxdb_write}
-            ] ++ WriteProfileConfig
+            ] ++ HttpWriteProfileConfig
         ),
     DefaultHackneyProfileConfigs = #{
         influxdb_query => [
@@ -55,10 +55,10 @@ start(_StartType, _StartArgs) ->
     HackneyProfileConfigMap = application:get_env(
         influxdb, hackney_profile_configs, DefaultHackneyProfileConfigs
     ),
-    QueryProfileConfig = maps:get(influxdb_query, HackneyProfileConfigMap, []),
-    WriteProfileConfig = maps:get(influxdb_write, HackneyProfileConfigMap, []),
-    ok = hackney_pool:start_pool(influxdb_query, QueryProfileConfig),
-    ok = hackney_pool:start_pool(influxdb_write, WriteProfileConfig),
+    HackneyQueryProfileConfig = maps:get(influxdb_query, HackneyProfileConfigMap, []),
+    HackneyWriteProfileConfig = maps:get(influxdb_write, HackneyProfileConfigMap, []),
+    ok = hackney_pool:start_pool(influxdb_query, HackneyQueryProfileConfig),
+    ok = hackney_pool:start_pool(influxdb_write, HackneyWriteProfileConfig),
     influxdb_sup:start_link().
 
 -spec stop(State :: term()) -> term().
