@@ -47,28 +47,34 @@ post_hackney(Client, Url, Username, Password, ContentType, Body, Timeout) ->
 post_hackney_with_retries(_Url, _Headers, _Body, _Options, 0, _) ->
     erlang:exit({error, max_retries_exceeded});
 post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft, Delay) ->
-    case hackney:request(post, Url, Headers, Body, Options) of
-        {ok, StatusCode, RespHeaders, ClientRef} ->
-            case hackney:body(ClientRef) of
-                {ok, RespBody} ->
-                    response(StatusCode, RespHeaders, RespBody);
-                {error, _Reason} ->
-                    timer:sleep(Delay),
-                    post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2)
-            end;
-        {ok, Status, _Headers} when Status == 200 ->
-            ok;
-        {ok, Status, _Headers} ->
-            case is_retriable_status(Status) of
-                true ->
-                    timer:sleep(Delay),
-                    post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2);
-                false ->
-                    erlang:exit({bad_response, Status})
-            end;
-        {ok, ClientRef} ->
-            {ok, {async, ClientRef}};
-        {error, _Reason} ->
+    try
+        case hackney:request(post, Url, Headers, Body, Options) of
+            {ok, StatusCode, RespHeaders, ClientRef} ->
+                case hackney:body(ClientRef) of
+                    {ok, RespBody} ->
+                        response(StatusCode, RespHeaders, RespBody);
+                    {error, _Reason} ->
+                        timer:sleep(Delay),
+                        post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2)
+                end;
+            {ok, Status, _Headers} when Status == 200 ->
+                ok;
+            {ok, Status, _Headers} ->
+                case is_retriable_status(Status) of
+                    true ->
+                        timer:sleep(Delay),
+                        post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2);
+                    false ->
+                        erlang:exit({bad_response, Status})
+                end;
+            {ok, ClientRef} ->
+                {ok, {async, ClientRef}};
+            {error, _Reason} ->
+                timer:sleep(Delay),
+                post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2)
+        end
+    catch
+        _Class:_:_Stacktrace ->
             timer:sleep(Delay),
             post_hackney_with_retries(Url, Headers, Body, Options, RetriesLeft - 1, Delay * 2)
     end.
