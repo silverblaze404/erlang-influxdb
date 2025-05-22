@@ -38,7 +38,7 @@ post_hackney(Client, Url, Username, Password, ContentType, Body, Timeout) ->
         {timeout, Timeout},
         {recv_timeout, Timeout},
         {connect_timeout, Timeout},
-        {pool, profile(Client)}
+        {pool, pool_hackney(Client)}
     ],
     case
         hackney:request(
@@ -78,7 +78,7 @@ post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
             {binary_to_list(Url), Headers, ContentType, iolist_to_binary(Body)},
             [{timeout, Timeout}],
             [{body_format, binary}],
-            profile(Client)
+            profile_httpc(Client)
         )
     of
         {ok, {{_, RespCode, _}, RespHeaders, RespBody}} ->
@@ -89,9 +89,24 @@ post_httpc(Client, Url, Username, Password, ContentType, Body, Timeout) ->
 
 %% Internals
 
-profile(query) ->
+pool_hackney(query) ->
+    case application:get_env(influxdb, hackney_pool_enabled, true) of
+        true ->
+            influxdb_query;
+        false ->
+            false
+    end;
+pool_hackney(write) ->
+    case application:get_env(influxdb, hackney_pool_enabled, true) of
+        true ->
+            influxdb_write;
+        false ->
+            false
+    end.
+
+profile_httpc(query) ->
     influxdb_query;
-profile(write) ->
+profile_httpc(write) ->
     influxdb_write.
 
 response(200, _, Body) ->
